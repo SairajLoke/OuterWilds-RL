@@ -1,0 +1,9 @@
+{
+  "filename": "ShipLogger.dll",
+  "author": "Psi",
+  "name": "Ship Logger",
+  "uniqueName": "psi.ShipLogger",
+  "version": "1.0.0",
+   "owmlVersion": "2.15.5",
+  "dependencies": []
+}

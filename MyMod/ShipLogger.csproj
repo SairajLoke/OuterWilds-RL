@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <NoWarn>MSB3270</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OWML" Version="2.15.5" />
+    <PackageReference Include="OuterWildsGameLibs" Version="1.1.16.1351" />
+  </ItemGroup>
+</Project>
