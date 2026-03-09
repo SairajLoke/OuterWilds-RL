@@ -19,6 +19,8 @@ RL agent to control OW ship
 5. figure out {state + obs + reward + actions} 
     - what input to give ( current plan : ship pose(loc+orient) +  loc of planets + masses of planet + acce? )
 
+### References
+https://github.com/ow-mods/outer-wilds-unity-wiki/wiki/Other-%E2%80%90-Global-Messenger-Reference : possibly useful to det events and design rewards/penalties
 
 ### handy cmds ---------------------------
 dotnet list ShipLogger.csproj package
