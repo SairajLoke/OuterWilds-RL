@@ -20,7 +20,18 @@ RL agent to control OW ship
     - what input to give ( current plan : ship pose(loc+orient) +  loc of planets + masses of planet + acce? )
 
 ### References
+https://owml.outerwildsmods.com/guides/patching.html : on classes used 
+https://owml.outerwildsmods.com/guides/patching.html#getting-the-object-youre-patching
+
 https://github.com/ow-mods/outer-wilds-unity-wiki/wiki/Other-%E2%80%90-Global-Messenger-Reference : possibly useful to det events and design rewards/penalties
+
+https://owml.outerwildsmods.com/guides/mod_settings.html#getting-values-in-c : mod settings
+
+
+Useful refs till now
+https://owml.outerwildsmods.com/guides/
+https://github.com/ow-mods/outer-wilds-unity-wiki/
+
 
 ### handy cmds ---------------------------
 dotnet list ShipLogger.csproj package
