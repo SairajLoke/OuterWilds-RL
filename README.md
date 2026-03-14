@@ -19,6 +19,10 @@ RL agent to control OW ship
 5. figure out {state + obs + reward + actions} 
     - what input to give ( current plan : ship pose(loc+orient) +  loc of planets + masses of planet + acce? )
 
+
+### others
+1. make , publish mod to data repo
+2. make vid demo
 ### References
 https://owml.outerwildsmods.com/guides/patching.html : on classes used 
 https://owml.outerwildsmods.com/guides/patching.html#getting-the-object-youre-patching
