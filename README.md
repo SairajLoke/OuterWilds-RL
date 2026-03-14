@@ -29,6 +29,8 @@ https://owml.outerwildsmods.com/guides/patching.html#getting-the-object-youre-pa
 
 https://github.com/ow-mods/outer-wilds-unity-wiki/wiki/Other-%E2%80%90-Global-Messenger-Reference : possibly useful to det events and design rewards/penalties
 
+https://github.com/ow-mods/ow-mod-template
+
 https://owml.outerwildsmods.com/guides/mod_settings.html#getting-values-in-c : mod settings
 
 
