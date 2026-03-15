@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/ow-mods/owml/master/schemas/config_schema.json",
+  "enabled": true,
+  "settings": {
+    "NumberControllers": 3, // No spaces in keys (optional)
+    "OrbitorController": { // CamelCase keys (optional)
+      "type": "selector",
+      "title": "Orbitor Control Type",
+      "value": "PID",
+      "options": [ "PID", "MPC", "RL-PPO", "Wrong >::(" ]
+    }
+  }
+}
