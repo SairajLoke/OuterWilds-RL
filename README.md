@@ -16,6 +16,7 @@ RL agent to control OW ship
 5. Get force direction (hence the acc (f/m)
 6. altitude only when inside plannet? how to measure otherwise? raw coordinate distance?
 7. Relative motion coords,? are they?
+1. visaulize values in ship hud, add a kpi,kpf const controller as well
 8. check out orientation ...
 9. check pose, velocity vecs
 10. distance..
