@@ -9,12 +9,23 @@ RL agent to control OW ship
 
 # Todo
 
-### Game Interaction
-1. access ship coords - done 
-2. access planet coords
-3. speedup -done
-5. Get force direction (hence the acc (f/m)
-6. altitude only when inside plannet? how to measure otherwise? raw coordinate distance?
+### Game Interaction            
+1. ship          coords | orientation | vel .....(get orientation facing planet)
+1. user          coords | orientation | vel
+1. target planet coords | orientation | vel?...
+1. force direction 
+1. altitude 
+1. frame of ref? 
+1. on target reached autopilot signal
+1. thrustor vals
+
+    
+1. controls - map keyboard nums to control velocity & patch it
+
+1. set points :  distance from planet (val | slider) | 
+
+3. speedup - done
+1. 
 7. Relative motion coords,? are they?
 1. visaulize values in ship hud, add a kpi,kpf const controller as well
 8. check out orientation ...
