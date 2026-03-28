@@ -14,8 +14,8 @@ namespace OuterWildsModPsi
 
         // ── Systems ──────────────────────────────────────────────────────
         private PSIPIDController _pidController;
-        private OrbitHUDPrompt   _orbitPrompt;
-        private OrbitConfigMenu _orbitMenu;
+        //private OrbitHUDPrompt   _orbitPrompt;
+        //private OrbitConfigMenu _orbitMenu;
 
         // ── Autopilot state ──────────────────────────────────────────────
         private Autopilot        _autopilot;
@@ -40,8 +40,7 @@ namespace OuterWildsModPsi
 
         public void Start()
         {
-            ModHelper.Console.WriteLine(
-                $"[PSI] Mod {nameof(OuterWildsModPsi)} loaded.", MessageType.Success);
+            ModHelper.Console.WriteLine($"[PSI] Mod {nameof(OuterWildsModPsi)} loaded.", MessageType.Success);
 
             //// Build UI objects once — they survive scene loads via DontDestroyOnLoad
             //_orbitMenu   = OrbitConfigMenu.Create(ModHelper);
@@ -51,7 +50,7 @@ namespace OuterWildsModPsi
             //_orbitMenu.OnConfirm += OnOrbitConfirmed;
 
             //debug window...........
-            GameObject debugObj = new GameObject("PSI_DebugWindow");
+            GameObject debugObj = new("PSI_DebugWindow");
             _debugWindow = debugObj.AddComponent<DebugWindow>();
             GameObject.DontDestroyOnLoad(debugObj);
             if(_debugWindow  != null)
@@ -80,6 +79,7 @@ namespace OuterWildsModPsi
         // Scene management
         // ─────────────────────────────────────────────────────────────────
 
+
         private void OnCompleteSceneLoad(OWScene previousScene, OWScene newScene)
         {
             if (newScene != OWScene.SolarSystem) return;
@@ -88,40 +88,44 @@ namespace OuterWildsModPsi
 
             // Get ship and initialize PID
             _pidController.getMyShip();
+            _pidController.getMyPlayer();
+
 
             // Hook autopilot events — must be done after scene load when ship exists
-            HookAutopilotEvents();
+            //HookAutopilotEvents();
         }
 
-        private void HookAutopilotEvents()
-        {
-            OWRigidbody shipBody = Locator.GetShipBody();
-            if (shipBody == null)
-            {
-                ModHelper.Console.WriteLine("[PSI] Ship not found when hooking autopilot.", MessageType.Error);
-                return;
-            }
+        //private void HookAutopilotEvents()
+        //{
+        //    OWRigidbody shipBody = Locator.GetShipBody();
+        //    if (shipBody == null)
+        //    {
+        //        ModHelper.Console.WriteLine("[PSI] Ship not found when hooking autopilot.", MessageType.Error);
+        //        return;
+        //    }
 
-            _autopilot = shipBody.GetComponent<Autopilot>();
-            if (_autopilot == null)
-            {
-                ModHelper.Console.WriteLine("[PSI] Autopilot component not found.", MessageType.Error);
-                return;
-            }else
-            {;
-                ModHelper.Console.WriteLine("[PSI] Ship autopilot found", MessageType.Success);
-            }
+        //    _autopilot = shipBody.GetComponent<Autopilot>();
+        //    if (_autopilot == null)
+        //    {
+        //        ModHelper.Console.WriteLine("[PSI] Autopilot component not found.", MessageType.Error);
+        //        return;
+        //    }
+        //    else
+        //    {
+        //        ;
+        //        ModHelper.Console.WriteLine("[PSI] Ship autopilot found", MessageType.Success);
+        //    }
 
-            // Clean up any previous subscriptions to avoid double-firing
-            _autopilot.OnArriveAtDestination -= OnAutopilotArrived;
-            _autopilot.OnAbortAutopilot      -= OnAutopilotAborted;
+        //    // Clean up any previous subscriptions to avoid double-firing
+        //    _autopilot.OnArriveAtDestination -= OnAutopilotArrived;
+        //    _autopilot.OnAbortAutopilot -= OnAutopilotAborted;
 
-            // Subscribe
-            _autopilot.OnArriveAtDestination += OnAutopilotArrived;
-            _autopilot.OnAbortAutopilot      += OnAutopilotAborted;
+        //    // Subscribe
+        //    _autopilot.OnArriveAtDestination += OnAutopilotArrived;
+        //    _autopilot.OnAbortAutopilot += OnAutopilotAborted;
 
-            ModHelper.Console.WriteLine("[PSI] Autopilot events hooked.", MessageType.Success);
-        }
+        //    ModHelper.Console.WriteLine("[PSI] Autopilot events hooked.", MessageType.Success);
+        //}
 
         // ─────────────────────────────────────────────────────────────────
         // Autopilot callbacks
@@ -159,14 +163,14 @@ namespace OuterWildsModPsi
             }
 
             // Show the [O] orbit prompt in the HUD
-            _orbitPrompt.Show(targetBody);
+            //_orbitPrompt.Show(targetBody);
         }
 
         /// <summary>Fired when autopilot is aborted mid-flight — hide any orbit UI.</summary>
         private void OnAutopilotAborted()
         {
-            _orbitPrompt.Hide();
-            _orbitMenu.Hide();
+            //_orbitPrompt.Hide();
+            //_orbitMenu.Hide();
             ModHelper.Console.WriteLine("[PSI] Autopilot aborted — orbit UI hidden.", MessageType.Warning);
         }
 
@@ -174,10 +178,10 @@ namespace OuterWildsModPsi
         // Orbit confirmation
         // ─────────────────────────────────────────────────────────────────
 
-        private void OnOrbitConfirmed(OrbitParameters parameters)
-        {
-            _pidController.SetOrbitParameters(parameters);
-        }
+        //private void OnOrbitConfirmed(OrbitParameters parameters)
+        //{
+        //    _pidController.SetOrbitParameters(parameters);
+        //}
 
         // ─────────────────────────────────────────────────────────────────
         // Update loop
@@ -189,6 +193,7 @@ namespace OuterWildsModPsi
             if (!_pidController.foundShip)
             {
                 _pidController.getMyShip();
+                _pidController.getMyPlayer();
                 return;
             }
 

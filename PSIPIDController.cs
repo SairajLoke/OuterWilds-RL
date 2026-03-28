@@ -12,28 +12,31 @@ namespace OuterWildsModPsi
     public class PSIPIDController
     {
         // ── Ship components ──────────────────────────────────────────────
-        private ShipBody _shipBody;
+        private ShipBody      _shipBody;
         private ShipAltimeter _altimeter;
         private ForceDetector _forceDetector;
+        private Autopilot     _autoPilot;
+        private PlayerBody    _playerBodyLocator;
 
         // ── Telemetry cache (refreshed each LogShipData call) ────────────
-        private Vector3 _shipPosition;
+        private Vector3    _shipPosition;
         private Quaternion _shipRotation;
-        private Vector3 _shipVelocity;
-        private Vector3 _shipAcceleration;
-        private float _shipMass;
-        private ReferenceFrame _refFrame;
-        private string _refFrameName;
-        private Vector3 _refFramePos;
-        private Vector3 _refFrameVel;
-        private Type _refFrameType;
-        private AstroObject _refFrameAstroObj;
-        private float _refFrameOrbitSpeed;
-        private ReferenceFrame _shipOrientation;
+        private Vector3    _shipVelocity;
+        private Vector3    _shipAcceleration;
+        private float      _shipMass;
 
+        private Transform      _shipCurrTransform;
+        private ReferenceFrame _shipCurrRefFrame;
+        private OWRigidbody    _shipCurrRefFrameRigBody;
+        private string         _shipCurrRefFrameRigBodyName;
+        private Vector3        _shipRelVelWRTCurrRefFrameRigBody;
+
+        //private Vector3 _shipRelVelWRTCurrRefFrame;
+        //private AstroObject _currRefFrameAstroObj;
+        //private float _currRefFrameOrbitSpeed;
         // ── Orbit state ──────────────────────────────────────────────────
-        private OrbitParameters _orbitParams;
-        private bool _orbitActive;
+        //private OrbitParameters _orbitParams;
+        //private bool _psiOrbitActive;
 
         // ── Misc ─────────────────────────────────────────────────────────
         public bool foundShip { get; private set; }
@@ -41,9 +44,37 @@ namespace OuterWildsModPsi
         private DebugWindow _debugWindow;
 
 
-        // ─────────────────────────────────────────────────────────────────
-        // Construction
-        // ─────────────────────────────────────────────────────────────────
+        // ── Player Vars ──────────────────────────────────────────────────
+        private Vector3 _playerPositionLocator;
+        private Vector3 _playerVelocityLocator;
+        private Vector3 _playerWorldCOMLocator;
+        private ReferenceFrame _playerCurrRefFrameLocator;
+        private string _playerCurrRefFrameNameLocator;
+        private float _playerMassLocator;
+        private string _playerBodyNamelocator;
+
+
+        // ── Others ──────────────────────────────────────────────────
+        private CenterOfTheUniverse _CenOTUni;
+        private Vector3 _centerofUniPos;
+        private Vector3 _centerofUniVel;
+
+        private AstroObject _sunAstroObj;
+        private AstroObject _timberAstroObj;
+        private OWRigidbody _sunRigBody;
+        private OWRigidbody _timberRigBody;
+        private Vector3 _sunPos;
+        private Vector3 _timberPos;
+        private Vector3 _shipCurrRefFrameVel;
+        //private AstroObject _shipCurrRefFrameAstroObj;
+        //private OWRigidbody _shipCurrRefFrameAstroObjRigBody; are null when trying to read
+        private Vector3 _shipCurrRefFramePos;
+        private bool _arrivedAtDesti;
+        private bool _isApproachingDestination;
+
+        private OWRigidbody _locatorRefFrameRigBody;
+        private string _locatorRefFrameRigBodyName;
+        private ReferenceFrame _locatorCurrRefFrameIPF_True;
 
         public PSIPIDController(IModHelper modHelper, DebugWindow debugWindow)
         {
@@ -51,9 +82,26 @@ namespace OuterWildsModPsi
             _debugWindow = debugWindow;
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // Ship acquisition
-        // ─────────────────────────────────────────────────────────────────
+        public void getMyPlayer()
+        {
+            _playerBodyLocator = (PlayerBody)Locator.GetPlayerBody();
+
+            if (_playerBodyLocator != null)
+            {
+                _modHelper.Console.WriteLine("[PID] Player found.", MessageType.Success);
+                _playerPositionLocator = _playerBodyLocator.GetPosition();
+                _playerVelocityLocator = _playerBodyLocator.GetVelocity();
+                _playerWorldCOMLocator = _playerBodyLocator.GetWorldCenterOfMass();
+                _playerCurrRefFrameLocator = _playerBodyLocator.GetReferenceFrame();
+                _playerCurrRefFrameNameLocator = _playerCurrRefFrameLocator.GetOWRigidBody()?.name ?? "unknown";
+                _playerMassLocator = _playerBodyLocator.GetMass();
+                _playerBodyNamelocator = _playerBodyLocator.name;
+            }
+            else
+            {
+                _modHelper.Console.WriteLine("[PID] Player not found.", MessageType.Error);
+            }
+        }
 
         public void getMyShip()
         {
@@ -61,13 +109,17 @@ namespace OuterWildsModPsi
 
             if (_shipBody != null)
             {
-                _altimeter = _shipBody.GetComponent<ShipAltimeter>();
+                _altimeter = _shipBody.GetComponent<ShipAltimeter>(); //not found here
                 _forceDetector = _shipBody.GetComponent<ForceDetector>();
+                _autoPilot = _shipBody.GetComponent<Autopilot>();
+                //_isApproachingDestination = _autoPilot.IsApproachingDestination();
+
                 foundShip = true;
 
                 _modHelper.Console.WriteLine(
                     $"[PID] Ship found. " +
-                    $"Altimeter={_altimeter != null} | ForceDetector={_forceDetector != null}",
+                    $"loc {_shipBody.name} " +
+                    $"Altimeter={_altimeter != null} | ForceDetector={_forceDetector != null} | Autopilot={_autoPilot != null}",
                     MessageType.Success);
             }
             else
@@ -75,103 +127,61 @@ namespace OuterWildsModPsi
                 foundShip = false;
                 _modHelper.Console.WriteLine("[PID] Ship not found.", MessageType.Warning);
             }
+
+            //_autoPilot.OnArriveAtDestination += OnAPArriveDesti;
+
+            _timberAstroObj = Locator.GetAstroObject(AstroObject.Name.TimberHearth);  //////not sure why this doesn't work but listing objects work
+            if (_timberAstroObj != null)
+            {
+                _timberRigBody = _timberAstroObj.GetOWRigidbody();
+                _modHelper.Console.WriteLine($"[PID] {_timberRigBody.name}  Found", MessageType.Success);
+            }
+
+            _sunAstroObj = Locator.GetAstroObject(AstroObject.Name.Sun);
+            if (_sunAstroObj != null)
+            {
+                _sunRigBody = _sunAstroObj.GetOWRigidbody();
+                _modHelper.Console.WriteLine($"[PID] {_sunRigBody.name} Found", MessageType.Success);
+            }
+
+            //AstroObject[] astroObjects = GameObject.FindObjectsOfType<AstroObject>();
+            //foreach (var astro in astroObjects)
+            
+            _CenOTUni = Locator.GetCenterOfTheUniverse();
+            if (_CenOTUni != null)
+            {
+                _modHelper.Console.WriteLine($"[PID] CofUniv: {_centerofUniPos} Found", MessageType.Success);
+            }
+            //_modHelper.Console.WriteLine(
+            //        $"[PID] Other Objs. " +
+            //        $"loc {_shipBody.name} " +
+            //        $"Altimeter={_altimeter != null} | ForceDetector={_forceDetector != null} | Autopilot={_autoPilot != null}",
+            //        MessageType.Success);
+
         }
 
+        //private Autopilot.ArriveAtDestinationEvent OnAPArriveDesti(float arrivalError)
+        //{
+        //    _modHelper.Console.WriteLine("event: Arrived at destination");
+        //    return;
+        //}
 
         public void getReferenceFrame()
         {
-            var _referenceFrame = Locator.GetReferenceFrame();
+            _locatorCurrRefFrameIPF_True = Locator.GetReferenceFrame(ignorePassiveFrame: true);
 
-            if (_shipBody != null)
+            if (_locatorCurrRefFrameIPF_True != null)
             {
-                //_altimeter = _shipBody.GetComponent<ShipAltimeter>();
-                //_forceDetector = _shipBody.GetComponent<ForceDetector>();
-                //foundShip = true;
+                _locatorRefFrameRigBody = _locatorCurrRefFrameIPF_True.GetOWRigidBody();
+                _locatorRefFrameRigBodyName = _locatorRefFrameRigBody.name;
 
-                _modHelper.Console.WriteLine(
-                    $"[PID] ref " +
-                    MessageType.Success);
+                _modHelper.Console.WriteLine($"[PID] locator ref frame {_locatorRefFrameRigBodyName}" + MessageType.Success);
             }
             else
             {
-                //foundShip = false;
-                _modHelper.Console.WriteLine("[PID] Ship not found.", MessageType.Warning);
+                _modHelper.Console.WriteLine("[PID] Locator Ref frame not found.", MessageType.Warning);
             }
         }
-
-        // ─────────────────────────────────────────────────────────────────
-        // Orbit parameters
-        // ─────────────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Called when the player confirms orbit settings in the config menu.
-        /// For now: logs all parameters. Later: initialises PID setpoints.
-        /// </summary>
-        public void SetOrbitParameters(OrbitParameters parameters)
-        {
-            _orbitParams = parameters;
-            _orbitActive = true;
-
-            // ── Log everything clearly ────────────────────────────────────
-            _modHelper.Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", MessageType.Success);
-            _modHelper.Console.WriteLine("[PID] ORBIT PARAMETERS CONFIRMED", MessageType.Success);
-            _modHelper.Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", MessageType.Success);
-
-            _modHelper.Console.WriteLine(
-                $"  Target body : {(parameters.targetBody != null ? parameters.targetBody.name : "null")}",
-                MessageType.Message);
-            _modHelper.Console.WriteLine(
-                $"  Altitude    : {parameters.altitude:F0} m",
-                MessageType.Message);
-            _modHelper.Console.WriteLine(
-                $"  Speed       : {parameters.speed:F2} m/s  " +
-                $"({(parameters.userOverrideSpeed ? "manual override" : "auto circular orbit")})",
-                MessageType.Message);
-            _modHelper.Console.WriteLine(
-                $"  Axis angle  : {parameters.axisAngle:F1}°  " +
-                $"(0=equatorial, 90=polar)",
-                MessageType.Message);
-            _modHelper.Console.WriteLine(
-                $"  Direction   : {(parameters.prograde ? "Prograde" : "Retrograde")}",
-                MessageType.Message);
-
-            // Log current ship state at moment of confirmation — useful for PID initialisation later
-            if (_shipBody != null)
-            {
-                Vector3 vel = _shipBody.GetVelocity();
-                Vector3 pos = _shipBody.GetPosition();
-                _modHelper.Console.WriteLine(
-                    $"  Ship pos    : ({pos.x:F0}, {pos.y:F0}, {pos.z:F0})",
-                    MessageType.Message);
-                _modHelper.Console.WriteLine(
-                    $"  Ship speed  : {vel.magnitude:F2} m/s",
-                    MessageType.Message);
-
-                if (parameters.targetBody != null)
-                {
-                    float distToTarget = (pos - parameters.targetBody.GetPosition()).magnitude;
-                    _modHelper.Console.WriteLine(
-                        $"  Dist to target: {distToTarget:F0} m  " +
-                        $"(target alt: {parameters.altitude:F0} m)",
-                        MessageType.Message);
-                }
-            }
-
-            _modHelper.Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", MessageType.Success);
-        }
-
-        /// <summary>Disengages orbit mode (call when player wants manual control back).</summary>
-        public void ClearOrbitParameters()
-        {
-            _orbitActive = false;
-            _modHelper.Console.WriteLine("[PID] Orbit mode disengaged.", MessageType.Warning);
-        }
-
-        public bool IsOrbitActive() => _orbitActive;
-
-        // ─────────────────────────────────────────────────────────────────
-        // Telemetry logging
-        // ─────────────────────────────────────────────────────────────────
 
         public void LogShipData()
         {
@@ -181,70 +191,194 @@ namespace OuterWildsModPsi
                 foundShip = false;
                 return;
             }
-
+            
             _shipPosition = _shipBody.GetPosition();
             _shipRotation = _shipBody.GetRotation();
             _shipVelocity = _shipBody.GetVelocity();
             _shipAcceleration = _shipBody.GetAcceleration();
             _shipMass = _shipBody.GetMass();
+            _shipCurrTransform = _shipBody._transform;
+            var shipPplayerBodyCurrVel = _shipBody._playerBody._currentVelocity;
+           
+            _shipCurrRefFrame = _shipBody.GetReferenceFrame();
+            if (_shipCurrRefFrame != null)
+            {
+                _shipCurrRefFramePos = _shipCurrRefFrame.GetPosition();
+                _shipCurrRefFrameRigBody = _shipCurrRefFrame.GetOWRigidBody();
+                _shipCurrRefFrameRigBodyName = _shipCurrRefFrameRigBody?.name ?? "unknown";
+                _shipRelVelWRTCurrRefFrameRigBody = _shipCurrRefFrameRigBody != null
+                                                        ? _shipBody.GetRelativeVelocity(_shipCurrRefFrameRigBody)
+                                                        : Vector3.zero;
 
 
-            _refFrame = _shipBody.GetReferenceFrame();
-            _refFramePos = _refFrame.GetPosition();
-            _refFrameVel = _refFrame.GetVelocity();
-            _refFrameType = _refFrame.GetType();
-            _refFrameAstroObj = _refFrame.GetAstroObject();
-            _refFrameName = _refFrame?.GetOWRigidBody()?.name ?? "unknown";
-            //_refFrameOrbitSpeed = _refFrame.GetOrbitSpeed();
+                _shipCurrRefFrameVel = _shipCurrRefFrame.GetVelocity();
+                //_shipCurrRefFrameAstroObj = _shipCurrRefFrame.GetAstroObject(); //null
+                //_shipCurrRefFrameAstroObjRigBody = _shipCurrRefFrameAstroObj?.GetOWRigidbody();
+
+
+
+                // ── Minimal logging (only when something is wrong) ──
+                if (_shipCurrRefFrameRigBody == null)
+                    _modHelper.Console.WriteLine("[PID] RefFrame RB is NULL", MessageType.Warning);
+
+                //if (_shipCurrRefFrameAstroObj == null)
+                //    _modHelper.Console.WriteLine("[PID] RefFrame AstroObject is NULL", MessageType.Warning);
+
+                //if (_shipCurrRefFrameAstroObj != null && _shipCurrRefFrameAstroObjRigBody == null)
+                //    _modHelper.Console.WriteLine("[PID] AstroObject RB is NULL", MessageType.Warning);
+            }
+            else
+            {
+                _modHelper.Console.WriteLine($"[PID] _shipCurrRefFrame not found.", MessageType.Warning);
+            }
+
+            if (_CenOTUni != null)
+            {
+                _centerofUniPos = _CenOTUni.GetOffsetPosition();
+                _centerofUniVel = _CenOTUni.GetOffsetVelocity();
+            }
+            else
+            {
+                _modHelper.Console.WriteLine("[PID] _CenOTUni not found.", MessageType.Warning);
+            }
+
+            if (_sunRigBody != null)
+            {
+                _sunPos = _sunRigBody.GetPosition();
+            }
+            else
+            {
+                _modHelper.Console.WriteLine("[PID] _sunRigBody not found.", MessageType.Warning);
+            }
+
+            if (_timberRigBody != null)
+            {
+                _timberPos = _timberRigBody.GetPosition();
+            }
+            else
+            {
+                _modHelper.Console.WriteLine("[PID] _timberRigBody not found.", MessageType.Warning);
+            }
+
+
+            //_refFrameOrbitSpeed = _refFrame.GetOrbitSpeed();, tangential ve;ocity 
 
 
             Vector3 forceAccel = _forceDetector != null
                 ? _forceDetector.GetForceAcceleration()
                 : Vector3.zero;
 
-            // Compact telemetry line
-            _modHelper.Console.WriteLine(
-                $"[SHIP] \n  " +
-                $"pos:{_shipPosition} | mag:{_shipPosition.magnitude,7:F0}  ..." +
-                $"vel:{_shipVelocity} | mag:{_shipVelocity.magnitude,6:F1} m/s  ..." +
-                $"acc:{_shipAcceleration} | mag:{_shipAcceleration.magnitude,5:F2} m/s²  ..." +
-                $"force:{forceAccel} | mag:{forceAccel.magnitude,5:F2} m/s²  ..." +
-                $"rot:{_shipRotation.eulerAngles.x:F1}°, {_shipRotation.eulerAngles.y:F1}°, {_shipRotation.eulerAngles.z:F1}°  ..." +
-                $"orbit:{(_orbitActive ? $"ACTIVE → {_orbitParams.targetBody?.name ?? "?"}" : "inactive")}",
-                MessageType.Success);
-
-
-            // Compact telemetry line
-            _modHelper.Console.WriteLine(
-                $"[REF FRAME] \n  " +
-                $"refPos: {_refFramePos,7:F0}  " +
-                $"refVel: {_refFrameVel,6:F1}m/s  " +
-                $"refType: {_refFrameType}  " +
-                $"refObj: {_refFrameAstroObj}" +
-                $"refFrameName: {_refFrameName}", MessageType.Success);
 
             if (_debugWindow != null)
             {
-                _debugWindow.pos = _shipPosition;
-                _debugWindow.vel = _shipVelocity;
-                _debugWindow.acc = _shipAcceleration;
-                _debugWindow.force = forceAccel;
+                
+                _debugWindow.shipPos = _shipPosition;
+                _debugWindow.shipVel = _shipVelocity;
+                _debugWindow.shipAcc = _shipAcceleration;
+                _debugWindow.shipForce = forceAccel;
+                _debugWindow.shipRotEuler = _shipRotation.eulerAngles;
 
-                _debugWindow.rotEuler = _shipRotation.eulerAngles;
+                _debugWindow.shipRefFrameName = _shipCurrRefFrameRigBodyName;
+                _debugWindow.shipRelVelWRTRef = _shipRelVelWRTCurrRefFrameRigBody;
 
-                _debugWindow.orbitActive = _orbitActive;
-                _debugWindow.targetName = _orbitParams.targetBody?.name ?? "None";
+                // PLAYER
+                _debugWindow.playerPos = _playerPositionLocator;
+                _debugWindow.playerVel = _playerVelocityLocator;
+                _debugWindow.playerCOM = _playerWorldCOMLocator;
+                _debugWindow.playerRefFrame = _playerCurrRefFrameNameLocator;
+                _debugWindow.playerMass = _playerMassLocator;
+                _debugWindow.playerName = _playerBodyNamelocator;
 
-                _debugWindow.refPos = _refFramePos;
-                _debugWindow.refVel = _refFrameVel;
-                _debugWindow.refType = _refFrameType?.Name ?? "null";
-                _debugWindow.refFrameName = _refFrameName; 
-                //_refFrameAstroObj?.name ?? "null";
+                // OBJECTS
+                _debugWindow.sunPos = _sunPos;
+                _debugWindow.timberPos = _timberPos;
+                _debugWindow.centerUniPos = _centerofUniPos;
+                _debugWindow.centerUniVel = _centerofUniVel;
+
+                // AUTOPILOT
+                _debugWindow.isApproaching = _isApproachingDestination;
+                _debugWindow.arrived = _arrivedAtDesti;
+                _debugWindow.autoTarget = _shipCurrRefFrameRigBodyName;
+
             }
-            else
-            {
-                _modHelper.Console.WriteLine("No debug window found");
-            }
+            else { _modHelper.Console.WriteLine("No debug window found"); }
         }
+
     }
+
 }
+        // ─────────────────────────────────────────────────────────────────
+        // Orbit parameters
+        // ─────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Called when the player confirms orbit settings in the config menu.
+        /// For now: logs all parameters. Later: initialises PID setpoints.
+        /// </summary>
+        //public void SetOrbitParameters(OrbitParameters parameters)
+        //{
+        //    _orbitParams = parameters;
+        //    _orbitActive = true;
+
+        //    // ── Log everything clearly ────────────────────────────────────
+        //    _modHelper.Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", MessageType.Success);
+        //    _modHelper.Console.WriteLine("[PID] ORBIT PARAMETERS CONFIRMED", MessageType.Success);
+        //    _modHelper.Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", MessageType.Success);
+
+        //    _modHelper.Console.WriteLine(
+        //        $"  Target body : {(parameters.targetBody != null ? parameters.targetBody.name : "null")}",
+        //        MessageType.Message);
+        //    _modHelper.Console.WriteLine(
+        //        $"  Altitude    : {parameters.altitude:F0} m",
+        //        MessageType.Message);
+        //    _modHelper.Console.WriteLine(
+        //        $"  Speed       : {parameters.speed:F2} m/s  " +
+        //        $"({(parameters.userOverrideSpeed ? "manual override" : "auto circular orbit")})",
+        //        MessageType.Message);
+        //    _modHelper.Console.WriteLine(
+        //        $"  Axis angle  : {parameters.axisAngle:F1}°  " +
+        //        $"(0=equatorial, 90=polar)",
+        //        MessageType.Message);
+        //    _modHelper.Console.WriteLine(
+        //        $"  Direction   : {(parameters.prograde ? "Prograde" : "Retrograde")}",
+        //        MessageType.Message);
+
+        //    // Log current ship state at moment of confirmation — useful for PID initialisation later
+        //    if (_shipBody != null)
+        //    {
+        //        Vector3 vel = _shipBody.GetVelocity();
+        //        Vector3 pos = _shipBody.GetPosition();
+        //        _modHelper.Console.WriteLine(
+        //            $"  Ship pos    : ({pos.x:F0}, {pos.y:F0}, {pos.z:F0})",
+        //            MessageType.Message);
+        //        _modHelper.Console.WriteLine(
+        //            $"  Ship speed  : {vel.magnitude:F2} m/s",
+        //            MessageType.Message);
+
+        //        if (parameters.targetBody != null)
+        //        {
+        //            float distToTarget = (pos - parameters.targetBody.GetPosition()).magnitude;
+        //            _modHelper.Console.WriteLine(
+        //                $"  Dist to target: {distToTarget:F0} m  " +
+        //                $"(target alt: {parameters.altitude:F0} m)",
+        //                MessageType.Message);
+        //        }
+        //    }
+
+        //    _modHelper.Console.WriteLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", MessageType.Success);
+        //}
+
+        /// <summary>Disengages orbit mode (call when player wants manual control back).</summary>
+        //public void ClearOrbitParameters()
+        //{
+        //    _orbitActive = false;
+        //    _modHelper.Console.WriteLine("[PID] Orbit mode disengaged.", MessageType.Warning);
+        //}
+
+        //public bool IsOrbitActive() => _orbitActive;
+
+        // ─────────────────────────────────────────────────────────────────
+        // Telemetry logging
+        // ─────────────────────────────────────────────────────────────────
+//    }
+//}

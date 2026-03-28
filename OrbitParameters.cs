@@ -2,13 +2,10 @@ using UnityEngine;
 
 namespace OuterWildsModPsi
 {
-    /// <summary>
-    /// All parameters needed to define and execute an orbit.
     /// Created by OrbitConfigMenu, consumed by PSIPIDController.
-    /// </summary>
     public struct OrbitParameters
     {
-        /// <summary>Target altitude above planet surface in metres.</summary>
+        /// <summaryTarget altitude above planet surface in metres.</summary>
         public float altitude;
 
         /// <summary>
