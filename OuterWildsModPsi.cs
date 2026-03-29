@@ -251,6 +251,17 @@ namespace OuterWildsModPsi
         }
     }
 
+
+    //[HarmonyPatch(typeof(ShipBody), nameof(ShipBody.SetVelocity))]
+    //public static class HarmonyShipVelocityPatch
+    //{
+    //    public static void Prefix()
+    //    {
+    //        if (OuterWildsModPsi.Instance == null) return;
+    //        OuterWildsModPsi.Instance.OnAutopilotTargetSet();
+    //    }
+    //}
+
     //[HarmonyPatch]
     //public class MyPatchClass
     //{

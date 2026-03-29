@@ -19,17 +19,17 @@ namespace OuterWildsModPsi
         private PlayerBody    _playerBodyLocator;
 
         // ── Telemetry cache (refreshed each LogShipData call) ────────────
-        private Vector3    _shipPosition;
+        private Vector3    _shipPosition = -Vector3.one;
         private Quaternion _shipRotation;
-        private Vector3    _shipVelocity;
-        private Vector3    _shipAcceleration;
-        private float      _shipMass;
+        private Vector3    _shipVelocity     = -Vector3.one;
+        private Vector3    _shipAcceleration = -Vector3.one;
+        private float      _shipMass = -1.0f;
 
         private Transform      _shipCurrTransform;
         private ReferenceFrame _shipCurrRefFrame;
         private OWRigidbody    _shipCurrRefFrameRigBody;
-        private string         _shipCurrRefFrameRigBodyName;
-        private Vector3        _shipRelVelWRTCurrRefFrameRigBody;
+        private string         _shipCurrRefFrameRigBodyName = "nan";
+        private Vector3        _shipRelVelWRTCurrRefFrameRigBody = -Vector3.one;
 
         //private Vector3 _shipRelVelWRTCurrRefFrame;
         //private AstroObject _currRefFrameAstroObj;
@@ -45,36 +45,47 @@ namespace OuterWildsModPsi
 
 
         // ── Player Vars ──────────────────────────────────────────────────
-        private Vector3 _playerPositionLocator;
-        private Vector3 _playerVelocityLocator;
-        private Vector3 _playerWorldCOMLocator;
+        private Vector3 _playerPositionLocator = -Vector3.one;
+        private Vector3 _playerVelocityLocator = -Vector3.one;
+        private Vector3 _playerWorldCOMLocator = -Vector3.one;
         private ReferenceFrame _playerCurrRefFrameLocator;
-        private string _playerCurrRefFrameNameLocator;
-        private float _playerMassLocator;
+        private string _playerCurrRefFrameNameLocator = "nan";
+        private float  _playerMassLocator;
         private string _playerBodyNamelocator;
 
 
         // ── Others ──────────────────────────────────────────────────
         private CenterOfTheUniverse _CenOTUni;
-        private Vector3 _centerofUniPos;
-        private Vector3 _centerofUniVel;
+        private Vector3 _centerofUniPos = -Vector3.one ;
+        private Vector3 _centerofUniVel = -Vector3.one ;
 
         private AstroObject _sunAstroObj;
         private AstroObject _timberAstroObj;
         private OWRigidbody _sunRigBody;
         private OWRigidbody _timberRigBody;
-        private Vector3 _sunPos;
-        private Vector3 _timberPos;
-        private Vector3 _shipCurrRefFrameVel;
+        private Vector3     _sunPos    = -Vector3.one;
+        private Vector3     _timberPos = -Vector3.one;
+        private Vector3     _shipCurrRefFrameVel = -Vector3.one;
         //private AstroObject _shipCurrRefFrameAstroObj;
         //private OWRigidbody _shipCurrRefFrameAstroObjRigBody; are null when trying to read
-        private Vector3 _shipCurrRefFramePos;
+        private Vector3     _shipCurrRefFramePos = -Vector3.one;
+
+        private OWRigidbody    _locatorRefFrameRigBody;
+        private string         _locatorRefFrameRigBodyName = "nan";
+        private ReferenceFrame _locatorCurrRefFrameIPF_True;
+
+
+
+        // ── Event Bools ──────────────────────────────────────────────────
         private bool _arrivedAtDesti;
         private bool _isApproachingDestination;
 
-        private OWRigidbody _locatorRefFrameRigBody;
-        private string _locatorRefFrameRigBodyName;
-        private ReferenceFrame _locatorCurrRefFrameIPF_True;
+        float kp = 50.0f; // tune this
+        private Vector3 _orbVel = -Vector3.one;
+        private Vector3 velError;
+        private Vector3 force;
+        private Vector3 desiredAccel;
+
 
         public PSIPIDController(IModHelper modHelper, DebugWindow debugWindow)
         {
@@ -261,44 +272,78 @@ namespace OuterWildsModPsi
             }
 
 
+            _modHelper.Console.WriteLine($"inside ship logger", MessageType.Warning);
             //_refFrameOrbitSpeed = _refFrame.GetOrbitSpeed();, tangential ve;ocity 
 
 
             Vector3 forceAccel = _forceDetector != null
                 ? _forceDetector.GetForceAcceleration()
-                : Vector3.zero;
+                : -Vector3.one;
+
+            //---------------------------
+            //_orbVel = OWPhysics.CalculateOrbitVelocity(_timberRigBody, _shipBody, 0); //_timberRigBody
+            ////Vector3 relVel = _timberRigBody.GetVelocity() - _shipVelocity;
+
+            ////velError = _orbVel - _shipVelocity; 
+            //velError = _orbVel + _timberRigBody.GetVelocity() - _shipVelocity;
+
+            ////_shipBody.SetVelocity(_orbVel);
+            //desiredAccel = velError * kp;
+            //float mass = _shipBody.GetMass();
+            //force = desiredAccel * mass;
+            //_shipBody.AddForce(force);
+            //_modHelper.Console.WriteLine($"velError: {velError},  mass: {mass}, force: {force}", MessageType.Success);
+            //----------------------------
+
+            _orbVel = OWPhysics.CalculateOrbitVelocity(_sunRigBody, _shipBody, 0); //_timberRigBody
+            //Vector3 relVel = _timberRigBody.GetVelocity() - _shipVelocity;
+
+            //velError = _orbVel - _shipVelocity; 
+            velError = _orbVel + _sunRigBody.GetVelocity() - _shipVelocity;
+
+            //_shipBody.SetVelocity(_orbVel);
+            desiredAccel = velError * kp;
+            float mass = _shipBody.GetMass();
+            force = desiredAccel * mass;
+            _shipBody.AddForce(force);
+            _modHelper.Console.WriteLine($"velError: {velError},  mass: {mass}, force: {force}", MessageType.Success);
+            //----------------------------
+
 
 
             if (_debugWindow != null)
             {
-                
-                _debugWindow.shipPos = _shipPosition;
-                _debugWindow.shipVel = _shipVelocity;
-                _debugWindow.shipAcc = _shipAcceleration;
-                _debugWindow.shipForce = forceAccel;
-                _debugWindow.shipRotEuler = _shipRotation.eulerAngles;
 
-                _debugWindow.shipRefFrameName = _shipCurrRefFrameRigBodyName;
-                _debugWindow.shipRelVelWRTRef = _shipRelVelWRTCurrRefFrameRigBody;
+                _debugWindow._shipPosition = _shipPosition;
+                _debugWindow._shipVelocity = _shipVelocity;
+                _debugWindow._shipAcceleration = _shipAcceleration;
+                _debugWindow._shipForce = forceAccel;
+                _debugWindow._shipRotationEuler = _shipRotation.eulerAngles;
+
+                _debugWindow._shipCurrRefFrameRigBodyName = _shipCurrRefFrameRigBodyName;
+                _debugWindow._shipRelVelWRTCurrRefFrameRigBody = _shipRelVelWRTCurrRefFrameRigBody;
 
                 // PLAYER
-                _debugWindow.playerPos = _playerPositionLocator;
-                _debugWindow.playerVel = _playerVelocityLocator;
-                _debugWindow.playerCOM = _playerWorldCOMLocator;
-                _debugWindow.playerRefFrame = _playerCurrRefFrameNameLocator;
-                _debugWindow.playerMass = _playerMassLocator;
-                _debugWindow.playerName = _playerBodyNamelocator;
+                _debugWindow._playerPositionLocator = _playerPositionLocator;
+                _debugWindow._playerVelocityLocator = _playerVelocityLocator;
+                _debugWindow._playerWorldCOMLocator = _playerWorldCOMLocator;
+                _debugWindow._playerCurrRefFrameNameLocator = _playerCurrRefFrameNameLocator;
+                _debugWindow._playerMassLocator = _playerMassLocator;
+                _debugWindow._playerBodyNamelocator = _playerBodyNamelocator;
 
                 // OBJECTS
-                _debugWindow.sunPos = _sunPos;
-                _debugWindow.timberPos = _timberPos;
-                _debugWindow.centerUniPos = _centerofUniPos;
-                _debugWindow.centerUniVel = _centerofUniVel;
+                _debugWindow._sunPos = _sunPos;
+                _debugWindow._timberPos = _timberPos;
+                _debugWindow._centerofUniPos = _centerofUniPos;
+                _debugWindow._centerofUniVel = _centerofUniVel;
 
                 // AUTOPILOT
-                _debugWindow.isApproaching = _isApproachingDestination;
-                _debugWindow.arrived = _arrivedAtDesti;
-                _debugWindow.autoTarget = _shipCurrRefFrameRigBodyName;
+                _debugWindow._isApproachingDestination = _isApproachingDestination;
+                _debugWindow._arrivedAtDesti = _arrivedAtDesti;
+                _debugWindow._autoTarget = _shipCurrRefFrameRigBodyName;
+
+                //orbital velocity
+                _debugWindow._orbVel =  _orbVel;
 
             }
             else { _modHelper.Console.WriteLine("No debug window found"); }

@@ -26,32 +26,33 @@ namespace OuterWildsModPsi
         //public string refFrameName;
 
         // ── SHIP ─────────────────────────────
-        public Vector3 shipPos;
-        public Vector3 shipVel;
-        public Vector3 shipAcc;
-        public Vector3 shipForce;
-        public Vector3 shipRotEuler;
-        public string  shipRefFrameName;
-        public Vector3 shipRelVelWRTRef;
+        public Vector3 _shipPosition;
+        public Vector3 _shipVelocity;
+        public Vector3 _shipAcceleration;
+        public Vector3 _shipForce;
+        public Vector3 _shipRotationEuler;
+        public string _shipCurrRefFrameRigBodyName;
+        public Vector3 _shipRelVelWRTCurrRefFrameRigBody;
 
         // ── PLAYER ───────────────────────────
-        public Vector3 playerPos;
-        public Vector3 playerVel;
-        public Vector3 playerCOM;
-        public string  playerRefFrame;
-        public float   playerMass;
-        public string  playerName;
+        public Vector3 _playerPositionLocator;
+        public Vector3 _playerVelocityLocator;
+        public Vector3 _playerWorldCOMLocator;
+        public string _playerCurrRefFrameNameLocator;
+        public float _playerMassLocator;
+        public string _playerBodyNamelocator;
 
         // ── OBJECTS ──────────────────────────
-        public Vector3 sunPos;
-        public Vector3 timberPos;
-        public Vector3 centerUniPos;
-        public Vector3 centerUniVel;
+        public Vector3 _sunPos;
+        public Vector3 _timberPos;
+        public Vector3 _centerofUniPos;
+        public Vector3 _centerofUniVel;
 
         // ── AUTOPILOT ────────────────────────
-        public bool isApproaching;
-        public bool arrived;
-        public string autoTarget;
+        public bool _isApproachingDestination;
+        public bool _arrivedAtDesti;
+        public string _autoTarget;
+        public Vector3 _orbVel; 
 
 
         Vector2 scroll;
@@ -95,13 +96,13 @@ namespace OuterWildsModPsi
             GUILayout.BeginVertical("box", GUILayout.Width(230));
 
             GUILayout.Label("<b>SHIP</b>");
-            GUILayout.Label($"shipPos: {FormatVec(shipPos)}");
-            GUILayout.Label($"shipVel: {FormatVec(shipVel)} | {shipVel.magnitude:F1}");
-            GUILayout.Label($"shipAcc: {FormatVec(shipAcc)} | {shipAcc.magnitude:F2}");
-            GUILayout.Label($"shipForce: {FormatVec(shipForce)}");
-            GUILayout.Label($"shipRotEuler: {FormatVec(shipRotEuler)}");
-            GUILayout.Label($"shipRefFrame: {shipRefFrameName}");
-            GUILayout.Label($"shipRelVelWRTRef: {FormatVec(shipRelVelWRTRef)}");
+            GUILayout.Label($"_shipPosition: {FormatVec(_shipPosition)}");
+            GUILayout.Label($"_shipVelocity: {FormatVec(_shipVelocity)} | {_shipVelocity.magnitude:F1}");
+            GUILayout.Label($"_shipAcceleration: {FormatVec(_shipAcceleration)} | {_shipAcceleration.magnitude:F2}");
+            GUILayout.Label($"_shipForce: {FormatVec(_shipForce)}");
+            GUILayout.Label($"_shipRotationEuler: {FormatVec(_shipRotationEuler)}");
+            GUILayout.Label($"_shipCurrRefFrameRigBodyName: {_shipCurrRefFrameRigBodyName}");
+            GUILayout.Label($"_shipRelVelWRTCurrRefFrameRigBody: {FormatVec(_shipRelVelWRTCurrRefFrameRigBody)}");
 
             GUILayout.EndVertical();
         }
@@ -111,10 +112,10 @@ namespace OuterWildsModPsi
             GUILayout.BeginVertical("box", GUILayout.Width(230));
 
             GUILayout.Label("<b>OBJECTS</b>");
-            GUILayout.Label($"sunPos: {FormatVec(sunPos)}");
-            GUILayout.Label($"timberPos: {FormatVec(timberPos)}");
-            GUILayout.Label($"centerUniPos: {FormatVec(centerUniPos)}");
-            GUILayout.Label($"centerUniVel: {FormatVec(centerUniVel)}");
+            GUILayout.Label($"_sunPos: {FormatVec(_sunPos)}");
+            GUILayout.Label($"_timberPos: {FormatVec(_timberPos)}");
+            GUILayout.Label($"_centerofUniPos: {FormatVec(_centerofUniPos)}");
+            GUILayout.Label($"_centerofUniVel: {FormatVec(_centerofUniVel)}");
 
             GUILayout.EndVertical();
         }
@@ -124,12 +125,12 @@ namespace OuterWildsModPsi
             GUILayout.BeginVertical("box", GUILayout.Width(230));
 
             GUILayout.Label("<b>PLAYER</b>");
-            GUILayout.Label($"playerName: {playerName}");
-            GUILayout.Label($"playerPos: {FormatVec(playerPos)}");
-            GUILayout.Label($"playerVel: {FormatVec(playerVel)}");
-            GUILayout.Label($"playerCOM: {FormatVec(playerCOM)}");
-            GUILayout.Label($"playerRefFrame: {playerRefFrame}");
-            GUILayout.Label($"playerMass: {playerMass:F1}");
+            GUILayout.Label($"_playerBodyNamelocator: {_playerBodyNamelocator}");
+            GUILayout.Label($"_playerPositionLocator: {FormatVec(_playerPositionLocator)}");
+            GUILayout.Label($"_playerVelocityLocator: {FormatVec(_playerVelocityLocator)}");
+            GUILayout.Label($"_playerWorldCOMLocator: {FormatVec(_playerWorldCOMLocator)}");
+            GUILayout.Label($"_playerCurrRefFrameNameLocator: {_playerCurrRefFrameNameLocator}");
+            GUILayout.Label($"_playerMassLocator: {_playerMassLocator:F1}");
 
             GUILayout.EndVertical();
         }
@@ -138,9 +139,10 @@ namespace OuterWildsModPsi
             GUILayout.BeginVertical("box", GUILayout.Width(230));
 
             GUILayout.Label("<b>AUTOPILOT</b>");
-            GUILayout.Label($"isApproaching: {isApproaching}");
-            GUILayout.Label($"arrived: {arrived}");
-            GUILayout.Label($"target: {autoTarget}");
+            GUILayout.Label($"_isApproachingDestination: {_isApproachingDestination}");
+            GUILayout.Label($"_arrivedAtDesti: {_arrivedAtDesti}");
+            GUILayout.Label($"_autoTarget: {_autoTarget}");
+            GUILayout.Label($"_orbVel: {FormatVec(_orbVel)}");
 
             GUILayout.EndVertical();
         }
@@ -148,5 +150,8 @@ namespace OuterWildsModPsi
 
         string FormatVec(Vector3 v) =>
             $"({v.x:F1}, {v.y:F1}, {v.z:F1})";
+
+        string FormatVecWithMag(Vector3 v) =>
+            $"({v.x:F1}, {v.y:F1}, {v.z:F1} | {v.magnitude:F1})";
     }
 }
