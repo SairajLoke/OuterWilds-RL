@@ -18,11 +18,11 @@ namespace OuterWildsModPsi
         //private OrbitConfigMenu _orbitMenu;
 
         // ── Autopilot state ──────────────────────────────────────────────
-        private Autopilot        _autopilot;
-        private ReferenceFrame   _autopilotTargetFrame; // set by Harmony patch
+        private Autopilot _autopilot;
+        private ReferenceFrame _autopilotTargetFrame; // set by Harmony patch
 
         // ── Logging ──────────────────────────────────────────────────────
-        private bool  _logging;
+        private bool _logging;
         private float _logTimer;
         private const float LOG_INTERVAL = 0.1f;
 
@@ -36,6 +36,13 @@ namespace OuterWildsModPsi
         {
             Instance = this;
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly());
+
+
+            GlobalMessenger<ReferenceFrame>.AddListener("TargetReferenceFrame", new Callback<ReferenceFrame>(this.myListenerOnTargetReferenceFrame));
+        }
+        public void myListenerOnTargetReferenceFrame(ReferenceFrame frame)
+        {
+            ModHelper.Console.WriteLine($"My listener listend to target frame {frame.GetHUDDisplayName()} | {frame.GetOWRigidBody().name} |");
         }
 
         public void Start()
@@ -53,7 +60,7 @@ namespace OuterWildsModPsi
             GameObject debugObj = new("PSI_DebugWindow");
             _debugWindow = debugObj.AddComponent<DebugWindow>();
             GameObject.DontDestroyOnLoad(debugObj);
-            if(_debugWindow  != null)
+            if (_debugWindow != null)
             {
                 ModHelper.Console.WriteLine($"[PSI] Debug window created: {_debugWindow != null}", MessageType.Success);
             }
@@ -68,7 +75,7 @@ namespace OuterWildsModPsi
 
             // Subscribe to scene loads
             LoadManager.OnCompleteSceneLoad += OnCompleteSceneLoad;
-            
+
 
             // Handle case where we're already in the solar system at mod load
             //OnCompleteSceneLoad(OWScene.TitleScreen, OWScene.TitleScreen);
@@ -229,7 +236,21 @@ namespace OuterWildsModPsi
             ModHelper.Console.WriteLine(
                 $"[PSI] Orbital Controller changed to: {controllerType}", MessageType.Info);
         }
+
+        //public bool CheckOrbiterModePromptConditions()
+        //{
+        //    //if (this.IsLandingModeAvailable() && !Locator.GetReferenceFrame(true).GetHideLandingModePrompt())
+        //    //{
+        //    //    ReferenceFrame referenceFrame = Locator.GetReferenceFrame(true);
+        //    //    float magnitude = (this._shipBody.GetPosition() - referenceFrame.GetPosition()).magnitude;
+        //    //    Vector3 vector = referenceFrame.GetVelocity() - this._shipBody.GetVelocity();
+        //    //    return magnitude < referenceFrame.GetAutoAlignmentDistance() && vector.magnitude < 50f;
+        //    //}
+        //    //return false;
+        //}
+
     }
+
 
 
     // ─────────────────────────────────────────────────────────────────────
@@ -251,6 +272,65 @@ namespace OuterWildsModPsi
         }
     }
 
+    /// ─────────────────────────────────────────────────────────────────────
+    /// 
+    [HarmonyPatch]
+    public class OrbiterPatchClass
+    {
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(ShipCockpitController), nameof(ShipCockpitController.OnTargetReferenceFrame))]
+        public static void OnTargetReferenceFrame_Prefix(ReferenceFrame referenceFrame)
+        {
+            OuterWildsModPsi.Instance.ModHelper.Console.WriteLine($"Target ref frame called in {referenceFrame.GetOWRigidBody().name}");
+        }
+
+
+        //[HarmonyPostfix]
+        //[HarmonyPatch(typeof(ShipPromptController), nameof(ShipPromptController.Awake))]
+        //public static void ShipPromptController_Awake_Postfix(ReferenceFrame referenceFrame)
+        //{
+        //    //this._landingModePrompt = new ScreenPrompt(InputLibrary.landingCamera, "<CMD>   " + UITextLibrary.GetString(UITextType.ShipLandingPrompt), 0, ScreenPrompt.DisplayState.Normal, false);
+        //}
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(ShipPromptController), nameof(ShipPromptController.Update))]
+        public static void ShipPromptController_Update_Postfix(ShipPromptController __instance)
+        {
+            //if (__instance._flightConsole.CheckOrbitModePromptConditions()){
+            //    __instance._orbitModePrompt.SetVisibility(true);
+            //        flag = false;
+            //}
+
+            if (!__instance._flightConsole.UsingLandingCam() &&
+                !__instance._landingPadManager.IsLanded())
+            {
+                if (__instance._flightConsole.CheckLandingModePromptConditions())
+                {
+                    OuterWildsModPsi.Instance.ModHelper.Console.WriteLine($"Inside the prompting region for orbiter", MessageType.Success);
+                }
+
+            }
+
+
+        }
+
+    }
+
+    //[HarmonyPatch(typeof(Autopilot), nameof(Autopilot.FlyToDestination))]
+    //public static class HarmonyAutopilotPatch
+    //{
+    //    /// <summary>
+    //    /// Prefix fires before FlyToDestination executes.
+    //    /// The ReferenceFrame parameter is the one the autopilot is about to store privately.
+    //    /// We grab it here and hand it to our mod instance.
+    //    /// </summary>
+    //    public static void Prefix(ReferenceFrame referenceFrame)
+    //    {
+    //        if (OuterWildsModPsi.Instance == null) return;
+    //        OuterWildsModPsi.Instance.OnAutopilotTargetSet(referenceFrame);
+    //    }
+    //}
+
 
     //[HarmonyPatch(typeof(ShipBody), nameof(ShipBody.SetVelocity))]
     //public static class HarmonyShipVelocityPatch
@@ -262,17 +342,5 @@ namespace OuterWildsModPsi
     //    }
     //}
 
-    //[HarmonyPatch]
-    //public class MyPatchClass
-    //{
-    //    [HarmonyPostfix]
-    //    [HarmonyPatch(typeof(DeathManager), nameof(DeathManager.KillPlayer))]
-    //    public static void DeathManager_KillPlayer_Prefix()
-    //    {
-
-    //        if (OuterWildsModPsi.Instance == null) return;
-    //        OuterWildsModPsi.Instance.OnAutopilotTargetSet(referenceFrame);
-    //    }
-    //}
 
 }

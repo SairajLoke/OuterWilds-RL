@@ -176,6 +176,24 @@ namespace OuterWildsModPsi
         //    _modHelper.Console.WriteLine("event: Arrived at destination");
         //    return;
         //}
+        public void addEventListeners()
+        {
+            GlobalMessenger<ReferenceFrame>.AddListener("TargetReferenceFrame", (targetRefFrame) =>
+            {
+                _modHelper.Console.WriteLine($"Target set to {targetRefFrame.GetHUDDisplayName()}");
+            });
+                //onReferenceFrameSetHandle);
+        }
+
+        //public void onReferenceFrameSetHandle(ReferenceFrame targetRefFrame)
+        //{
+        //    _modHelper.Console.WriteLine($"Target set to {targetRefFrame.GetHUDDisplayName()}");
+
+        //}onReferenceFrameSetHandle(ReferenceFrame targetRefFrame)
+        //{
+        //    _modHelper.Console.WriteLine($"Target set to {targetRefFrame.GetHUDDisplayName()}");
+
+        //}
 
         public void getReferenceFrame()
         {
@@ -202,8 +220,9 @@ namespace OuterWildsModPsi
                 foundShip = false;
                 return;
             }
-            
-            _shipPosition = _shipBody.GetPosition();
+
+
+                _shipPosition = _shipBody.GetPosition();
             _shipRotation = _shipBody.GetRotation();
             _shipVelocity = _shipBody.GetVelocity();
             _shipAcceleration = _shipBody.GetAcceleration();
