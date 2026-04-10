@@ -85,7 +85,9 @@ namespace OuterWildsModPsi
         private Vector3 velError;
         private Vector3 force;
         private Vector3 desiredAccel;
-
+        private bool _limitOrbitSpeed;
+        private bool _orbitMode;
+        private ReferenceFrame _orbitRF;
 
         public PSIPIDController(IModHelper modHelper, DebugWindow debugWindow)
         {
@@ -117,6 +119,8 @@ namespace OuterWildsModPsi
         public void getMyShip()
         {
             _shipBody = (ShipBody)Locator.GetShipBody();
+
+            OrbiterPatchClass.ShipBody = Locator.GetShipBody();
 
             if (_shipBody != null)
             {
@@ -176,6 +180,8 @@ namespace OuterWildsModPsi
         //    _modHelper.Console.WriteLine("event: Arrived at destination");
         //    return;
         //}
+
+
         public void addEventListeners()
         {
             GlobalMessenger<ReferenceFrame>.AddListener("TargetReferenceFrame", (targetRefFrame) =>
@@ -314,19 +320,50 @@ namespace OuterWildsModPsi
             //_modHelper.Console.WriteLine($"velError: {velError},  mass: {mass}, force: {force}", MessageType.Success);
             //----------------------------
 
-            _orbVel = OWPhysics.CalculateOrbitVelocity(_sunRigBody, _shipBody, 0); //_timberRigBody
-            //Vector3 relVel = _timberRigBody.GetVelocity() - _shipVelocity;
+            //_orbVel = OWPhysics.CalculateOrbitVelocity(_sunRigBody, _shipBody, 0); //_timberRigBody
+            ////Vector3 relVel = _timberRigBody.GetVelocity() - _shipVelocity;
 
-            //velError = _orbVel - _shipVelocity; 
-            velError = _orbVel + _sunRigBody.GetVelocity() - _shipVelocity;
+            ////velError = _orbVel - _shipVelocity; 
+            //velError = _orbVel + _sunRigBody.GetVelocity() - _shipVelocity;
 
-            //_shipBody.SetVelocity(_orbVel);
-            desiredAccel = velError * kp;
-            float mass = _shipBody.GetMass();
-            force = desiredAccel * mass;
-            _shipBody.AddForce(force);
-            _modHelper.Console.WriteLine($"velError: {velError},  mass: {mass}, force: {force}", MessageType.Success);
+            ////_shipBody.SetVelocity(_orbVel);
+            //desiredAccel = velError * kp;
+            //float mass = _shipBody.GetMass();
+            //force = desiredAccel * mass;
+            //_shipBody.AddForce(force);
+            //_modHelper.Console.WriteLine($"velError: {velError},  mass: {mass}, force: {force}", MessageType.Success);
             //----------------------------
+
+            this._orbitRF = Locator.GetReferenceFrame(true);
+            if (this._orbitRF != null)
+            {  //&& not eq to ship frame{
+
+                OrbiterPatchClass.OrbitActive = true;
+                OrbiterPatchClass.OrbitTargetBody = _orbitRF?.GetOWRigidBody(); ; // Locator.GetReferenceFrame(true)?.GetOWRigidBody();
+                
+                //var _orbitOWRigidBody = this._orbitRF.GetOWRigidBody();
+                //_modHelper.Console.WriteLine($"_orbitOWRigidBody: {_orbitOWRigidBody.name}", MessageType.Success);
+
+                //_orbVel = OWPhysics.CalculateOrbitVelocity(_orbitOWRigidBody, _shipBody, 0); //_timberRigBody
+                ////Vector3 relVel = _timberRigBody.GetVelocity() - _shipVelocity;
+
+                ////velError = _orbVel - _shipVelocity; 
+                //velError = _orbVel + _orbitOWRigidBody.GetVelocity() - _shipVelocity;
+
+                ////_shipBody.SetVelocity(_orbVel);
+                //desiredAccel = velError * kp;
+                //float mass = _shipBody.GetMass();
+                //force = desiredAccel * mass;
+                //_shipBody.AddForce(force);
+                //_modHelper.Console.WriteLine($"velError: {velError},  mass: {mass}, force: {force}", MessageType.Success);
+
+            }
+            else
+            {
+
+                OrbiterPatchClass.OrbitActive = false;
+                _modHelper.Console.WriteLine($"_orbitRF not found", MessageType.Error);
+            }
 
 
 
@@ -367,6 +404,109 @@ namespace OuterWildsModPsi
             }
             else { _modHelper.Console.WriteLine("No debug window found"); }
         }
+
+
+
+        private void OnEnterLandingMode(ReferenceFrame referenceFrame)
+        {
+            this._orbitMode= true;
+            this._orbitRF = referenceFrame;
+        }
+
+        // Token: 0x06002A30 RID: 10800 RVA: 0x000204D5 File Offset: 0x0001E6D5
+        private void OnExitLandingMode()
+        {
+            this._orbitMode = false;
+            this._orbitRF = null;
+        }
+
+
+        //protected override Vector3 ReadTranslationalInput()
+        //{
+        //    float value = OWInput.GetValue(InputLibrary.thrustX, InputMode.All);
+        //    float value2 = OWInput.GetValue(InputLibrary.thrustZ, InputMode.All);
+        //    float value3 = OWInput.GetValue(InputLibrary.thrustUp, InputMode.All);
+        //    float value4 = OWInput.GetValue(InputLibrary.thrustDown, InputMode.All);
+        //    if (!OWInput.IsInputMode(InputMode.ShipCockpit | InputMode.LandingCam))
+        //    {
+        //        return Vector3.zero;
+        //    }
+        //    if (!this._shipResources.AreThrustersUsable())
+        //    {
+        //        return Vector3.zero;
+        //    }
+        //    if (this._autopilot.IsFlyingToDestination())
+        //    {
+        //        return Vector3.zero;
+        //    }
+        //    Vector3 vector = new Vector3(value, 0f, value2);
+        //    if (vector.sqrMagnitude > 1f)
+        //    {
+        //        vector.Normalize();
+        //    }
+        //    vector.y = value3 - value4;
+        //    if (this._requireIgnition && this._landingManager.IsLanded())
+        //    {
+        //        vector.x = 0f;
+        //        vector.z = 0f;
+        //        vector.y = Mathf.Clamp01(vector.y);
+        //        if (!this._isIgniting && this._lastTranslationalInput.y <= 0f && vector.y > 0f)
+        //        {
+        //            this._isIgniting = true;
+        //            this._ignitionTime = Time.time;
+        //            GlobalMessenger.FireEvent("StartShipIgnition");
+        //        }
+        //        if (this._isIgniting)
+        //        {
+        //            if (vector.y <= 0f)
+        //            {
+        //                this._isIgniting = false;
+        //                GlobalMessenger.FireEvent("CancelShipIgnition");
+        //            }
+        //            if (Time.time < this._ignitionTime + this._ignitionDuration)
+        //            {
+        //                vector.y = 0f;
+        //            }
+        //            else
+        //            {
+        //                this._isIgniting = false;
+        //                this._requireIgnition = false;
+        //                GlobalMessenger.FireEvent("CompleteShipIgnition");
+        //                RumbleManager.PlayShipIgnition();
+        //                RumbleManager.SetShipThrottleNormal();
+        //            }
+        //        }
+        //    }
+        //    float num = Mathf.Min(this._rulesetDetector.GetThrustLimit(), this._thrusterModel.GetMaxTranslationalThrust()) / this._thrusterModel.GetMaxTranslationalThrust();
+        //    Vector3 vector2 = vector * num;
+        //    if (this._limitOrbitSpeed && this._shipAlignment.IsAligning() && vector2.magnitude > 0f)
+        //    {
+        //        Vector3 vector3 = this._landingRF.GetOWRigidBody().GetWorldCenterOfMass() - this._shipBody.GetWorldCenterOfMass();
+        //        Vector3 vector4 = this._shipBody.GetVelocity() - this._landingRF.GetVelocity();
+        //        Vector3 vector5 = vector4 - Vector3.Project(vector4, vector3);
+        //        Vector3 vector6 = Quaternion.FromToRotation(-this._shipBody.transform.up, vector3) * this._shipBody.transform.TransformDirection(vector2 * this._thrusterModel.GetMaxTranslationalThrust());
+        //        Vector3 vector7 = Vector3.Project(vector6, vector3);
+        //        Vector3 vector8 = vector6 - vector7;
+        //        Vector3 vector9 = vector5 + vector8 * Time.deltaTime;
+        //        float magnitude = vector9.magnitude;
+        //        float orbitSpeed = this._landingRF.GetOrbitSpeed(vector3.magnitude);
+        //        if (magnitude > orbitSpeed)
+        //        {
+        //            vector9 = vector9.normalized * orbitSpeed;
+        //            vector8 = (vector9 - vector5) / Time.deltaTime;
+        //            vector6 = vector7 + vector8;
+        //            vector2 = this._shipBody.transform.InverseTransformDirection(vector6 / this._thrusterModel.GetMaxTranslationalThrust());
+        //            if (vector2.sqrMagnitude > 1f)
+        //            {
+        //                vector2.Normalize();
+        //            }
+        //        }
+        //    }
+        //    this._lastTranslationalInput = vector;
+        //    return vector2;
+        //}
+
+
 
     }
 

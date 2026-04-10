@@ -209,6 +209,9 @@ namespace OuterWildsModPsi
             {
                 _logging = !_logging;
                 _logTimer = 0f;
+
+                OrbiterPatchClass.OrbitActive = false;
+
                 ModHelper.Console.WriteLine(
                     $"[PSI] Logging: {(_logging ? "ON" : "OFF")}",
                     _logging ? MessageType.Success : MessageType.Warning);
@@ -313,6 +316,77 @@ namespace OuterWildsModPsi
 
 
         }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(ShipThrusterController), "ReadTranslationalInput")]
+        public static bool ReadTranslationalInput_Prefix(
+        ShipThrusterController __instance,
+        ref Vector3 __result)
+        {
+            if (!OrbitActive || OrbitTargetBody == null || ShipBody == null)
+                return true;
+
+            if (!OWInput.IsInputMode(InputMode.ShipCockpit | InputMode.LandingCam))
+            {
+                __result = Vector3.zero;
+                return false;
+            }
+
+            var shipResources = Traverse.Create(__instance).Field<ShipResources>("_shipResources").Value;
+            if (!shipResources.AreThrustersUsable())
+            {
+                __result = Vector3.zero;
+                return false;
+            }
+
+            var autopilot = Traverse.Create(__instance).Field<Autopilot>("_autopilot").Value;
+            if (autopilot.IsFlyingToDestination())
+            {
+                __result = Vector3.zero;
+                return false;
+            }
+
+            Vector3 orbitalVel = OWPhysics.CalculateOrbitVelocity(OrbitTargetBody, ShipBody, 0);
+            Vector3 absoluteOrbVel = orbitalVel + OrbitTargetBody.GetVelocity();
+            Vector3 velError = absoluteOrbVel - ShipBody.GetVelocity();
+
+            Vector3 localInput = ShipBody.transform.InverseTransformDirection(velError * Kp);
+            if (localInput.sqrMagnitude > 1f)
+                localInput.Normalize();
+
+            var thrusterModel = Traverse.Create(__instance).Field<ThrusterModel>("_thrusterModel").Value;
+            var rulesetDetector = Traverse.Create(__instance).Field<RulesetDetector>("_rulesetDetector").Value;
+            float limitRatio = Mathf.Min(rulesetDetector.GetThrustLimit(), thrusterModel.GetMaxTranslationalThrust())
+                                  / thrusterModel.GetMaxTranslationalThrust();
+
+            __result = localInput * limitRatio;
+            return false;
+        }
+
+        public static bool OrbitActive = false;
+        public static OWRigidbody OrbitTargetBody = null;
+        public static OWRigidbody ShipBody = null;
+        public static float Kp = 1f;
+
+        //// Token: 0x060029FE RID: 10750 RVA: 0x0002020C File Offset: 0x0001E40C
+        //private void EnterLandingMode()
+        //{
+        //    if (!this._isLandingMode)
+        //    {
+        //        this._isLandingMode = true;
+        //        GlobalMessenger<ReferenceFrame>.FireEvent("EnterLandingMode", Locator.GetReferenceFrame(true));
+        //    }
+        //}
+
+        //// Token: 0x060029FF RID: 10751 RVA: 0x0002022D File Offset: 0x0001E42D
+        //private void ExitLandingMode()
+        //{
+        //    if (this._isLandingMode)
+        //    {
+        //        this._isLandingMode = false;
+        //        GlobalMessenger.FireEvent("ExitLandingMode");
+        //    }
+        //} //to have instead oribit mode functions 
 
     }
 
