@@ -228,7 +228,7 @@ namespace OuterWildsModPsi
             }
 
 
-                _shipPosition = _shipBody.GetPosition();
+            _shipPosition = _shipBody.GetPosition();
             _shipRotation = _shipBody.GetRotation();
             _shipVelocity = _shipBody.GetVelocity();
             _shipAcceleration = _shipBody.GetAcceleration();
@@ -334,36 +334,6 @@ namespace OuterWildsModPsi
             //_modHelper.Console.WriteLine($"velError: {velError},  mass: {mass}, force: {force}", MessageType.Success);
             //----------------------------
 
-            this._orbitRF = Locator.GetReferenceFrame(true);
-            if (this._orbitRF != null)
-            {  //&& not eq to ship frame{
-
-                OrbiterPatchClass.OrbitActive = true;
-                OrbiterPatchClass.OrbitTargetBody = _orbitRF?.GetOWRigidBody(); ; // Locator.GetReferenceFrame(true)?.GetOWRigidBody();
-                
-                //var _orbitOWRigidBody = this._orbitRF.GetOWRigidBody();
-                //_modHelper.Console.WriteLine($"_orbitOWRigidBody: {_orbitOWRigidBody.name}", MessageType.Success);
-
-                //_orbVel = OWPhysics.CalculateOrbitVelocity(_orbitOWRigidBody, _shipBody, 0); //_timberRigBody
-                ////Vector3 relVel = _timberRigBody.GetVelocity() - _shipVelocity;
-
-                ////velError = _orbVel - _shipVelocity; 
-                //velError = _orbVel + _orbitOWRigidBody.GetVelocity() - _shipVelocity;
-
-                ////_shipBody.SetVelocity(_orbVel);
-                //desiredAccel = velError * kp;
-                //float mass = _shipBody.GetMass();
-                //force = desiredAccel * mass;
-                //_shipBody.AddForce(force);
-                //_modHelper.Console.WriteLine($"velError: {velError},  mass: {mass}, force: {force}", MessageType.Success);
-
-            }
-            else
-            {
-
-                OrbiterPatchClass.OrbitActive = false;
-                _modHelper.Console.WriteLine($"_orbitRF not found", MessageType.Error);
-            }
 
 
 
@@ -405,6 +375,38 @@ namespace OuterWildsModPsi
             else { _modHelper.Console.WriteLine("No debug window found"); }
         }
 
+        public void DoOrbitStep() //this seems to a bit off...like if i go near poles and do a orbitl...it orbits near that pole only...
+        {
+            this._orbitRF = Locator.GetReferenceFrame(true);
+            if (this._orbitRF != null)
+            {  //&& not eq to ship frame{
+
+                var _latestShipBody = Locator.GetShipBody();
+
+                OrbiterPatchClass.OrbitTargetBody = _orbitRF?.GetOWRigidBody(); ; // Locator.GetReferenceFrame(true)?.GetOWRigidBody();
+
+                var _orbitOWRigidBody = this._orbitRF.GetOWRigidBody();
+                _modHelper.Console.WriteLine($"_orbitOWRigidBody: {_orbitOWRigidBody.name}", MessageType.Success);
+
+                _orbVel = OWPhysics.CalculateOrbitVelocity(_orbitOWRigidBody, _latestShipBody, 0); //_timberRigBody
+                //Vector3 relVel = _timberRigBody.GetVelocity() - _shipVelocity;
+
+                //velError = _orbVel - _shipVelocity; 
+                velError = _orbVel + _orbitOWRigidBody.GetVelocity() - _latestShipBody.GetVelocity();
+
+                //_shipBody.SetVelocity(_orbVel);
+                desiredAccel = velError * kp;
+                float mass = _latestShipBody.GetMass();
+                force = desiredAccel * mass;
+                _latestShipBody.AddForce(force);
+                _modHelper.Console.WriteLine($"velError: {velError},  mass: {mass}, force: {force}", MessageType.Success);
+
+            }
+            else
+            {
+                _modHelper.Console.WriteLine($"_orbitRF not found", MessageType.Error);
+            }
+        }
 
 
         private void OnEnterLandingMode(ReferenceFrame referenceFrame)

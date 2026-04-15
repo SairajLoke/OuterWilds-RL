@@ -37,7 +37,7 @@ namespace OuterWildsModPsi
             Instance = this;
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly());
 
-
+            //optional
             GlobalMessenger<ReferenceFrame>.AddListener("TargetReferenceFrame", new Callback<ReferenceFrame>(this.myListenerOnTargetReferenceFrame));
         }
         public void myListenerOnTargetReferenceFrame(ReferenceFrame frame)
@@ -102,46 +102,9 @@ namespace OuterWildsModPsi
             //HookAutopilotEvents();
         }
 
-        //private void HookAutopilotEvents()
-        //{
-        //    OWRigidbody shipBody = Locator.GetShipBody();
-        //    if (shipBody == null)
-        //    {
-        //        ModHelper.Console.WriteLine("[PSI] Ship not found when hooking autopilot.", MessageType.Error);
-        //        return;
-        //    }
-
-        //    _autopilot = shipBody.GetComponent<Autopilot>();
-        //    if (_autopilot == null)
-        //    {
-        //        ModHelper.Console.WriteLine("[PSI] Autopilot component not found.", MessageType.Error);
-        //        return;
-        //    }
-        //    else
-        //    {
-        //        ;
-        //        ModHelper.Console.WriteLine("[PSI] Ship autopilot found", MessageType.Success);
-        //    }
-
-        //    // Clean up any previous subscriptions to avoid double-firing
-        //    _autopilot.OnArriveAtDestination -= OnAutopilotArrived;
-        //    _autopilot.OnAbortAutopilot -= OnAutopilotAborted;
-
-        //    // Subscribe
-        //    _autopilot.OnArriveAtDestination += OnAutopilotArrived;
-        //    _autopilot.OnAbortAutopilot += OnAutopilotAborted;
-
-        //    ModHelper.Console.WriteLine("[PSI] Autopilot events hooked.", MessageType.Success);
-        //}
-
         // ─────────────────────────────────────────────────────────────────
         // Autopilot callbacks
         // ─────────────────────────────────────────────────────────────────
-
-        /// <summary>
-        /// Called by HarmonyAutopilotPatch when FlyToDestination() is invoked.
-        /// This gives us the target ReferenceFrame before it's stored privately.
-        /// </summary>
         public void OnAutopilotTargetSet(ReferenceFrame referenceFrame)
         {
             _autopilotTargetFrame = referenceFrame;
@@ -182,15 +145,6 @@ namespace OuterWildsModPsi
         }
 
         // ─────────────────────────────────────────────────────────────────
-        // Orbit confirmation
-        // ─────────────────────────────────────────────────────────────────
-
-        //private void OnOrbitConfirmed(OrbitParameters parameters)
-        //{
-        //    _pidController.SetOrbitParameters(parameters);
-        //}
-
-        // ─────────────────────────────────────────────────────────────────
         // Update loop
         // ─────────────────────────────────────────────────────────────────
 
@@ -210,8 +164,6 @@ namespace OuterWildsModPsi
                 _logging = !_logging;
                 _logTimer = 0f;
 
-                OrbiterPatchClass.OrbitActive = false;
-
                 ModHelper.Console.WriteLine(
                     $"[PSI] Logging: {(_logging ? "ON" : "OFF")}",
                     _logging ? MessageType.Success : MessageType.Warning);
@@ -227,6 +179,17 @@ namespace OuterWildsModPsi
                     _pidController.LogShipData();
                 }
             }
+
+            if (OrbiterPatchClass.isOrbitActive)
+            {
+                _pidController.DoOrbitStep();
+            }
+
+            if(Keyboard.current.oKey.wasPressedThisFrame && OrbiterPatchClass.isOrbitModeAvailable )
+            {
+                OrbiterPatchClass.isOrbitActive = !OrbiterPatchClass.isOrbitActive;
+                OrbiterPatchClass._orbitDisablePrompt.SetVisibility(!OrbiterPatchClass.isOrbitActive);
+            }
         }
 
         // ─────────────────────────────────────────────────────────────────
@@ -240,17 +203,18 @@ namespace OuterWildsModPsi
                 $"[PSI] Orbital Controller changed to: {controllerType}", MessageType.Info);
         }
 
-        //public bool CheckOrbiterModePromptConditions()
-        //{
-        //    //if (this.IsLandingModeAvailable() && !Locator.GetReferenceFrame(true).GetHideLandingModePrompt())
-        //    //{
-        //    //    ReferenceFrame referenceFrame = Locator.GetReferenceFrame(true);
-        //    //    float magnitude = (this._shipBody.GetPosition() - referenceFrame.GetPosition()).magnitude;
-        //    //    Vector3 vector = referenceFrame.GetVelocity() - this._shipBody.GetVelocity();
-        //    //    return magnitude < referenceFrame.GetAutoAlignmentDistance() && vector.magnitude < 50f;
-        //    //}
-        //    //return false;
-        //}
+        public static bool CheckOrbiterModePromptConditions()
+        {
+            //if (!Locator.GetReferenceFrame(true).GetHideLandingModePrompt()) //removing this.IsLandingModeAvailable() 
+            //{
+            ReferenceFrame referenceFrame = Locator.GetReferenceFrame(true);
+            var _localShipBody = Locator.GetShipBody(); //prolly use a global variable 
+            float magnitude = (_localShipBody.GetPosition() - referenceFrame.GetPosition()).magnitude;
+            //Vector3 vector = referenceFrame.GetVelocity() - this._shipBody.GetVelocity(); //removing velocity condition
+            return magnitude < referenceFrame.GetAutoAlignmentDistance(); // && vector.magnitude < 50f;
+            //}
+            //return false;
+        }
 
     }
 
@@ -288,28 +252,54 @@ namespace OuterWildsModPsi
         }
 
 
-        //[HarmonyPostfix]
-        //[HarmonyPatch(typeof(ShipPromptController), nameof(ShipPromptController.Awake))]
-        //public static void ShipPromptController_Awake_Postfix(ReferenceFrame referenceFrame)
-        //{
-        //    //this._landingModePrompt = new ScreenPrompt(InputLibrary.landingCamera, "<CMD>   " + UITextLibrary.GetString(UITextType.ShipLandingPrompt), 0, ScreenPrompt.DisplayState.Normal, false);
-        //}
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(ShipPromptController), nameof(ShipPromptController.Awake))]
+        public static void ShipPromptController_Awake_Postfix()
+        {
+
+            //this._landingModePrompt = new ScreenPrompt(InputLibrary.landingCamera, "<CMD>   " + UITextLibrary.GetString(UITextType.ShipLandingPrompt), 0, ScreenPrompt.DisplayState.Normal, false);
+            _orbitModePrompt = new ScreenPrompt("Press O  to Activate Orbit Mode",  0); //not looking like their prompts currently 
+                                                                                        //ideally something like: new ScreenPrompt(InputLibrary.orbitMode, "<CMD>   Activate Orbit Mode" , 0, ScreenPrompt.DisplayState.Normal, false);
+            _orbitDisablePrompt = new ScreenPrompt("Press O to Deactivate Orbit Mode", 0);
+            OuterWildsModPsi.Instance.ModHelper.Console.WriteLine($"Created orbit prompt");
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(ShipPromptController), nameof(ShipPromptController.LateInitialize))]
+        public static void ShipPromptController_LateInitialize_Postfix()
+        {
+            Locator.GetPromptManager().AddScreenPrompt(_orbitModePrompt, PromptPosition.UpperLeft, false);
+            Locator.GetPromptManager().AddScreenPrompt(_orbitDisablePrompt, PromptPosition.UpperLeft, false);
+            OuterWildsModPsi.Instance.ModHelper.Console.WriteLine($"Lateinitializer Added new orbit prompt");
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(ShipPromptController), nameof(ShipPromptController.HideAllPrompts))]
+        public static void ShipPromptController_HideAllPrompts_Postfix()
+        {
+            _orbitModePrompt.SetVisibility(false);
+            _orbitDisablePrompt.SetVisibility(false);
+        }
+
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(ShipPromptController), nameof(ShipPromptController.Update))]
         public static void ShipPromptController_Update_Postfix(ShipPromptController __instance)
         {
-            //if (__instance._flightConsole.CheckOrbitModePromptConditions()){
-            //    __instance._orbitModePrompt.SetVisibility(true);
-            //        flag = false;
-            //}
 
-            if (!__instance._flightConsole.UsingLandingCam() &&
-                !__instance._landingPadManager.IsLanded())
+            if (!__instance._landingPadManager.IsLanded()) //!__instance._flightConsole.UsingLandingCam() && 
             {
-                if (__instance._flightConsole.CheckLandingModePromptConditions())
+                if (OuterWildsModPsi.CheckOrbiterModePromptConditions())// __instance._flightConsole.CheckLandingModePromptConditions())
                 {
                     OuterWildsModPsi.Instance.ModHelper.Console.WriteLine($"Inside the prompting region for orbiter", MessageType.Success);
+                    if (!isOrbitActive ) { _orbitModePrompt.SetVisibility(true); }
+                    else{ _orbitDisablePrompt.SetVisibility(true); }
+                    isOrbitModeAvailable = true;
+                }
+                else
+                {
+                    _orbitModePrompt.SetVisibility(false);
+                    isOrbitModeAvailable= false;
                 }
 
             }
@@ -317,95 +307,91 @@ namespace OuterWildsModPsi
 
         }
 
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(ShipThrusterController), "ReadTranslationalInput")]
-        public static bool ReadTranslationalInput_Prefix(
-        ShipThrusterController __instance,
-        ref Vector3 __result)
-        {
-            if (!OrbitActive || OrbitTargetBody == null || ShipBody == null)
-                return true;
 
-            if (!OWInput.IsInputMode(InputMode.ShipCockpit | InputMode.LandingCam))
-            {
-                __result = Vector3.zero;
-                return false;
-            }
-
-            var shipResources = Traverse.Create(__instance).Field<ShipResources>("_shipResources").Value;
-            if (!shipResources.AreThrustersUsable())
-            {
-                __result = Vector3.zero;
-                return false;
-            }
-
-            var autopilot = Traverse.Create(__instance).Field<Autopilot>("_autopilot").Value;
-            if (autopilot.IsFlyingToDestination())
-            {
-                __result = Vector3.zero;
-                return false;
-            }
-
-            Vector3 orbitalVel = OWPhysics.CalculateOrbitVelocity(OrbitTargetBody, ShipBody, 0);
-            Vector3 absoluteOrbVel = orbitalVel + OrbitTargetBody.GetVelocity();
-            Vector3 velError = absoluteOrbVel - ShipBody.GetVelocity();
-
-            Vector3 localInput = ShipBody.transform.InverseTransformDirection(velError * Kp);
-            if (localInput.sqrMagnitude > 1f)
-                localInput.Normalize();
-
-            var thrusterModel = Traverse.Create(__instance).Field<ThrusterModel>("_thrusterModel").Value;
-            var rulesetDetector = Traverse.Create(__instance).Field<RulesetDetector>("_rulesetDetector").Value;
-            float limitRatio = Mathf.Min(rulesetDetector.GetThrustLimit(), thrusterModel.GetMaxTranslationalThrust())
-                                  / thrusterModel.GetMaxTranslationalThrust();
-
-            __result = localInput * limitRatio;
-            return false;
-        }
-
-        public static bool OrbitActive = false;
+        public static bool isOrbitActive = false;
+        public static bool isOrbitModeAvailable = false;
         public static OWRigidbody OrbitTargetBody = null;
         public static OWRigidbody ShipBody = null;
         public static float Kp = 1f;
+        public static ScreenPrompt _orbitModePrompt;
+        public static ScreenPrompt _orbitDisablePrompt; 
+
+        /*
+         * Maybe i should set vel using ship vel? 
+         * not sure...that was having some issue with the frame of reference...
+         * this follows landing logic ( tho this current prefix should instead be a postfix...
+         */
+        //[HarmonyPrefix]
+        //[HarmonyPatch(typeof(ShipThrusterController), "ReadTranslationalInput")]
+        //public static bool ReadTranslationalInput_Prefix(   
+        //ShipThrusterController __instance,
+        //ref Vector3 __result)
+        //{
+        //    if (!OrbitActive || OrbitTargetBody == null || ShipBody == null)
+        //        return true;
+
+        //    if (!OWInput.IsInputMode(InputMode.ShipCockpit | InputMode.LandingCam))
+        //    {
+        //        __result = Vector3.zero;
+        //        return false;
+        //    }
+
+        //    var shipResources = Traverse.Create(__instance).Field<ShipResources>("_shipResources").Value;
+        //    if (!shipResources.AreThrustersUsable())
+        //    {
+        //        __result = Vector3.zero;
+        //        return false;
+        //    }
+
+        //    var autopilot = Traverse.Create(__instance).Field<Autopilot>("_autopilot").Value;
+        //    if (autopilot.IsFlyingToDestination())
+        //    {
+        //        __result = Vector3.zero;
+        //        return false;
+        //    }
+
+        //    Vector3 orbitalVel = OWPhysics.CalculateOrbitVelocity(OrbitTargetBody, ShipBody, 0);
+        //    Vector3 absoluteOrbVel = orbitalVel + OrbitTargetBody.GetVelocity();
+        //    Vector3 velError = absoluteOrbVel - ShipBody.GetVelocity();
+
+        //    Vector3 localInput = ShipBody.transform.InverseTransformDirection(velError * Kp);
+        //    if (localInput.sqrMagnitude > 1f)
+        //        localInput.Normalize();
+
+        //    var thrusterModel = Traverse.Create(__instance).Field<ThrusterModel>("_thrusterModel").Value;
+        //    var rulesetDetector = Traverse.Create(__instance).Field<RulesetDetector>("_rulesetDetector").Value;
+        //    float limitRatio = Mathf.Min(rulesetDetector.GetThrustLimit(), thrusterModel.GetMaxTranslationalThrust())
+        //                          / thrusterModel.GetMaxTranslationalThrust();
+
+        //    __result = localInput * limitRatio;
+
+        //    OuterWildsModPsi.Instance.ModHelper.Console.WriteLine($"Read Translation input prefix vel: {__result}", MessageType.Success);
+        //    return false;
+        //}
 
         //// Token: 0x060029FE RID: 10750 RVA: 0x0002020C File Offset: 0x0001E40C
-        //private void EnterLandingMode()
+        //private void EnterOrbitMode()
         //{
-        //    if (!this._isLandingMode)
+        //    if (!this._isOrbitMode)
         //    {
-        //        this._isLandingMode = true;
-        //        GlobalMessenger<ReferenceFrame>.FireEvent("EnterLandingMode", Locator.GetReferenceFrame(true));
+        //        this._isOrbitMode = true;
+        //        GlobalMessenger<ReferenceFrame>.FireEvent("EnterOrbitMode", Locator.GetReferenceFrame(true));
         //    }
         //}
 
         //// Token: 0x060029FF RID: 10751 RVA: 0x0002022D File Offset: 0x0001E42D
-        //private void ExitLandingMode()
+        //private void ExitOrbitMode()
         //{
-        //    if (this._isLandingMode)
+        //    if (this._isOrbitMode)
         //    {
-        //        this._isLandingMode = false;
-        //        GlobalMessenger.FireEvent("ExitLandingMode");
+        //        this._isOrbitMode = false;
+        //        GlobalMessenger.FireEvent("ExitOrbitMode");
         //    }
-        //} //to have instead oribit mode functions 
+        //}
 
     }
 
-    //[HarmonyPatch(typeof(Autopilot), nameof(Autopilot.FlyToDestination))]
-    //public static class HarmonyAutopilotPatch
-    //{
-    //    /// <summary>
-    //    /// Prefix fires before FlyToDestination executes.
-    //    /// The ReferenceFrame parameter is the one the autopilot is about to store privately.
-    //    /// We grab it here and hand it to our mod instance.
-    //    /// </summary>
-    //    public static void Prefix(ReferenceFrame referenceFrame)
-    //    {
-    //        if (OuterWildsModPsi.Instance == null) return;
-    //        OuterWildsModPsi.Instance.OnAutopilotTargetSet(referenceFrame);
-    //    }
-    //}
-
-
+    /** Maybe i can use set vel instead of setting it in read translation? ...**/ 
     //[HarmonyPatch(typeof(ShipBody), nameof(ShipBody.SetVelocity))]
     //public static class HarmonyShipVelocityPatch
     //{
